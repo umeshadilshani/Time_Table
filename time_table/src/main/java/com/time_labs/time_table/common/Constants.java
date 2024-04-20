@@ -21,6 +21,8 @@ public class Constants {
 
     public static final String MESSAGE_UER_NOT_FOUND = "User not found!";
 
+    public static final String MESSAGE_UNAUTHORIZED_ACCESS = "Unauthorized access!";
+
     public static final String VERSION = "v1";
 
     public static final String ERROR = "error";
@@ -32,4 +34,12 @@ public class Constants {
     public static final String ERROR_LEVEL_WARN = "warn";
 
     public static final String ERROR_LEVEL_ERROR = "error";
+
+    public static final Object MESSAGE_SLOT_OVERLAP_GROUP = "Slots overlaps by group id!";
+
+    public static final Object MESSAGE_SLOT_OVERLAP_LECTURER = "Slots overlaps by lecturer!";
+
+    public static final Object MESSAGE_SLOT_OVERLAP_LOCATION = "Slots overlaps by location!";
+
+    public static final Object MESSAGE_SLOT_OVERLAP_RESOURCE = "Slots overlaps by resources!";
 }

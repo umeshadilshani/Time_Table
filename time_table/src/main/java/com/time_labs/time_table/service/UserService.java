@@ -3,11 +3,9 @@ package com.time_labs.time_table.service;
 import com.time_labs.time_table.common.CommonUtils;
 import com.time_labs.time_table.common.Constants;
 import com.time_labs.time_table.common.jwt.CustomerUserDetailsService;
-import com.time_labs.time_table.common.jwt.JwtFilter;
 import com.time_labs.time_table.common.jwt.JwtUtil;
 import com.time_labs.time_table.common.mapper.DtoMapper;
 import com.time_labs.time_table.common.validation.UserValidation;
-import com.time_labs.time_table.repository.CourseRepository;
 import com.time_labs.time_table.repository.UserRepository;
 import com.time_labs.time_table.repository.dao.User;
 import com.time_labs.time_table.web.dto.UserDto;
@@ -34,82 +32,110 @@ public class UserService {
     private UserRepository userRepository;
 
     @Autowired
-    CustomerUserDetailsService customerUserDetailsService;
+    private CustomerUserDetailsService customerUserDetailsService;
 
     @Autowired
-    AuthenticationManager authenticationManager;
+    private AuthenticationManager authenticationManager;
 
     @Autowired
-    JwtUtil jwtUtil;
+    private JwtUtil jwtUtil;
 
     @Autowired
-    JwtFilter jwtFilter;
+    private PasswordEncoder passwordEncoder;
 
     public ResponseEntity<Object> createUser(User user) {
-        User newUser = new User();
-        if(getUserById(user.getUser_id()).getStatusCode() == HttpStatus.FOUND){
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(createResponse(Constants.MESSAGE_ALREADY_EXISTS, null));
-        }
-        if (UserValidation.validateUser(user).getStatusCode() == HttpStatus.OK) {
-            newUser.setUser_id(user.getUser_id());
-            newUser.setName(user.getName());
-            newUser.setPassword(user.getPassword());
-            newUser.setRole(user.getRole());
-
-            if (user.getGroupId() != null){
-                newUser.setGroupId(user.getGroupId());
+        try {
+            // Check if the user already exists
+            if (getUserById(user.getUser_id()).getStatusCode() == HttpStatus.FOUND) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(createResponse(Constants.MESSAGE_ALREADY_EXISTS, null));
             }
-            User savedUser = userRepository.save(newUser);
-            return ResponseEntity.status(HttpStatus.CREATED).body(createResponse(Constants.MESSAGE_SUCCESSFUL, DtoMapper.mapToUserDto(savedUser)));
+
+            // Validate the user data
+            if (UserValidation.validateUser(user).getStatusCode() == HttpStatus.OK) {
+                User newUser = new User();
+                newUser.setUser_id(user.getUser_id());
+                newUser.setName(user.getName());
+                // Bcrypt the password
+                String encodedPassword = passwordEncoder.encode(user.getPassword());
+                newUser.setPassword(encodedPassword);
+                newUser.setRole(user.getRole());
+                if (user.getGroupId() != null) {
+                    newUser.setGroupId(user.getGroupId());
+                }
+                User savedUser = userRepository.save(newUser);
+                return ResponseEntity.status(HttpStatus.CREATED).body(createResponse(Constants.MESSAGE_SUCCESSFUL, DtoMapper.mapToUserDto(savedUser)));
+            }
+            return UserValidation.validateUser(user);
+        } catch (Exception e) {
+            // Log the error
+            CommonUtils.TIME_LABS_LOGGER.log(Level.SEVERE, "Error creating user", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(createResponse(e.getMessage(), null));
         }
-        return UserValidation.validateUser(user);
     }
 
     public ResponseEntity<Object> getAllUser() {
-        List<UserDto> users = userRepository.findAll()
-                .stream()
-                .map(DtoMapper::mapToUserDto)
-                .toList();
+        try {
+            List<UserDto> users = userRepository.findAll()
+                    .stream()
+                    .map(DtoMapper::mapToUserDto)
+                    .toList();
 
-        if(users.isEmpty()){
-            return ResponseEntity.status(HttpStatus.OK).body(createResponse(Constants.MESSAGE_NO_RECORDS_FOUND, null));
+            if (users.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.OK).body(createResponse(Constants.MESSAGE_NO_RECORDS_FOUND, null));
+            }
+
+            return ResponseEntity.status(HttpStatus.FOUND).body(createResponse(Constants.MESSAGE_FOUND, users));
+        } catch (Exception e) {
+            CommonUtils.TIME_LABS_LOGGER.log(Level.SEVERE, "Error getting all users", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(createResponse(e.getMessage(), null));
         }
-
-        return ResponseEntity.status(HttpStatus.FOUND).body(createResponse(Constants.MESSAGE_FOUND, users));
     }
 
     public ResponseEntity<Object> getUserById(String user_id) {
-        User user =  userRepository.findByUserId(user_id);
-
-        if(user != null){
-            return ResponseEntity.status(HttpStatus.FOUND).body(createResponse(Constants.MESSAGE_FOUND, DtoMapper.mapToUserDto(user)));
+        try {
+            User user = userRepository.findByUserId(user_id);
+            if (user != null) {
+                return ResponseEntity.status(HttpStatus.FOUND).body(createResponse(Constants.MESSAGE_FOUND, DtoMapper.mapToUserDto(user)));
+            }
+            return ResponseEntity.status(HttpStatus.OK).body(createResponse(Constants.MESSAGE_NOT_FOUND, null));
+        } catch (Exception e) {
+            CommonUtils.TIME_LABS_LOGGER.log(Level.SEVERE, "Error getting user by ID", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(createResponse(e.getMessage(), null));
         }
-        return ResponseEntity.status(HttpStatus.OK).body(createResponse(Constants.MESSAGE_NOT_FOUND, null));
     }
 
     public ResponseEntity<Object> updateUserById(String user_id, User user) {
-        User foundUser = userRepository.findByUserId(user_id);
+        try {
+            User foundUser = userRepository.findByUserId(user_id);
+            if (foundUser != null) {
+                User updateUser = foundUser;
+                updateUser.setName(user.getName());
+                // Bcrypt the password
+                String encodedPassword = passwordEncoder.encode(user.getPassword());
+                updateUser.setPassword(encodedPassword);
+                updateUser.setRole(user.getRole());
 
-        if(foundUser != null){
-            User updateUser = foundUser.get();
-            updateUser.setUser_id(user_id);
-            updateUser.setName(user.getName());
-            updateUser.setPassword(user.getPassword());
-            updateUser.setRole(user.getRole());
-
-            return ResponseEntity.status(HttpStatus.OK).body(createResponse(Constants.MESSAGE_UPDATED_SUCCESSFULLY, DtoMapper.mapToUserDto(userRepository.save(updateUser))));
+                return ResponseEntity.status(HttpStatus.OK).body(createResponse(Constants.MESSAGE_UPDATED_SUCCESSFULLY, DtoMapper.mapToUserDto(userRepository.save(updateUser))));
+            }
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(createResponse(Constants.MESSAGE_NOT_FOUND, null));
+        } catch (Exception e) {
+            CommonUtils.TIME_LABS_LOGGER.log(Level.SEVERE, "Error updating user by ID", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(createResponse(e.getMessage(), null));
         }
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(createResponse(Constants.MESSAGE_NOT_FOUND, null));
     }
 
     public ResponseEntity<Object> deleteUserById(String user_id) {
-        ResponseEntity<Object> responseEntity = getUserById(user_id);
-
-        if (responseEntity.getStatusCode() == HttpStatus.FOUND) {
-            userRepository.deleteByUserId(user_id);
-            return ResponseEntity.status(HttpStatus.OK).body(createResponse(Constants.MESSAGE_DELETED_SUCCESSFULLY, null));
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(createResponse(Constants.MESSAGE_NOT_FOUND, null));
+        try {
+            ResponseEntity<Object> responseEntity = getUserById(user_id);
+            if (responseEntity.getStatusCode() == HttpStatus.FOUND) {
+                userRepository.deleteByUserId(user_id);
+                return ResponseEntity.status(HttpStatus.OK).body(createResponse(Constants.MESSAGE_DELETED_SUCCESSFULLY, null));
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(createResponse(Constants.MESSAGE_NOT_FOUND, null));
+            }
+        } catch (Exception e) {
+            CommonUtils.TIME_LABS_LOGGER.log(Level.SEVERE, "Error deleting user by ID", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(createResponse(e.getMessage(), null));
         }
     }
 
@@ -121,18 +147,31 @@ public class UserService {
 
             if (auth.isAuthenticated()) {
                 String token = jwtUtil.generateToken(customerUserDetailsService.getUserDetail().getUser_id(), customerUserDetailsService.getUserDetail().getRole());
-
-
                 Map<String, String> response = new HashMap<>();
                 response.put("token", token);
-
                 return ResponseEntity.ok(response);
             }
             return ResponseEntity.badRequest().body("Invalid Data");
-        } catch (Exception ex) {
-            CommonUtils.TIME_LABS_LOGGER.info("error");
+        } catch (Exception e) {
+            CommonUtils.TIME_LABS_LOGGER.log(Level.SEVERE, "Error during login", e);
+            return ResponseEntity.badRequest().body(Constants.ERROR);
         }
+    }
 
-        return ResponseEntity.badRequest().body(Constants.ERROR);
+    public ResponseEntity<Object> resetPassword(String user_id, User user) {
+        try {
+            User foundUser = userRepository.findByUserId(user_id);
+            if (foundUser != null) {
+                User updateUser = foundUser;
+                // Bcrypt the password
+                String encodedPassword = passwordEncoder.encode(user.getPassword());
+                updateUser.setPassword(encodedPassword);
+                return ResponseEntity.status(HttpStatus.OK).body(createResponse(Constants.MESSAGE_UPDATED_SUCCESSFULLY, DtoMapper.mapToUserDto(userRepository.save(updateUser))));
+            }
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(createResponse(Constants.MESSAGE_NOT_FOUND, null));
+        } catch (Exception e) {
+            CommonUtils.TIME_LABS_LOGGER.log(Level.SEVERE, "Error resetting password", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(createResponse(e.getMessage(), null));
+        }
     }
 }

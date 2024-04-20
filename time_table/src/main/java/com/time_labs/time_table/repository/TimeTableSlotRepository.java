@@ -32,4 +32,10 @@ public interface TimeTableSlotRepository extends MongoRepository<TimeTableSlot, 
     List<TimeTableSlot> findByWeekNoAndDayAndLocationsInAndStartTimeLessThanEqualAndEndTimeGreaterThanEqualAndIdNot(int weekNo, DayOfWeek day, List<String> location, LocalTime endTime, LocalTime startTime, String id);
 
     List<TimeTableSlot> findByWeekNoAndDayAndResourcesInAndStartTimeLessThanEqualAndEndTimeGreaterThanEqualAndIdNot(int weekNo, DayOfWeek day, List<String> resource, LocalTime endTime, LocalTime startTime, String id);
+
+    List<TimeTableSlot> findByGroupIdAndWeekNo(String groupId, int weekNo);
+
+    List<TimeTableSlot> findByLecturers_idAndWeekNoAndDay(String userId, int weekNo, DayOfWeek day);
+
+    List<TimeTableSlot> findByLecturers_idAndWeekNo(String userId, int weekNo);
 }

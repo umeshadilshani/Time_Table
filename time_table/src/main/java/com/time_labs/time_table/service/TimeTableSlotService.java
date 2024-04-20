@@ -1,5 +1,6 @@
 package com.time_labs.time_table.service;
 
+import com.time_labs.time_table.common.Constants;
 import com.time_labs.time_table.repository.TimeTableSlotRepository;
 import com.time_labs.time_table.repository.dao.TimeTableSlot;
 import com.time_labs.time_table.repository.dao.User;
@@ -163,5 +164,39 @@ public class TimeTableSlotService {
             return message;
         }
         return "Could not update";
+    }
+
+    public String deleteSlotById(String id) {
+        try {
+            Optional<TimeTableSlot> timeTableSlotOptional = timeTableSlotRepository.findById(id);
+            if (timeTableSlotOptional.isPresent()) {
+                timeTableSlotRepository.deleteById(id);
+                return Constants.MESSAGE_DELETED_SUCCESSFULLY;
+            } else {
+                return Constants.MESSAGE_NOT_FOUND;
+            }
+        } catch (Exception e) {
+            return e.getMessage();
+        }
+    }
+
+    public List<TimeTableSlot> getSlotsByGroupIdAndWeek(String groupId, int weekNo) {
+        return timeTableSlotRepository.findByGroupIdAndWeekNo(groupId, weekNo);
+    }
+
+    public List<TimeTableSlot> findByLecturers_UserIdAndWeekNoAndDay(String userId, int weekNo, DayOfWeek day) {
+        try {
+            return timeTableSlotRepository.findByLecturers_idAndWeekNoAndDay(userId, weekNo, day);
+        } catch (Exception e) {
+            throw new RuntimeException("Error fetching slots by lecturer ID, week number, and day", e);
+        }
+    }
+
+    public List<TimeTableSlot> findByLecturers_UserIdAndWeekNo(String userId, int weekNo) {
+        try {
+            return timeTableSlotRepository.findByLecturers_idAndWeekNo(userId, weekNo);
+        } catch (Exception e) {
+            throw new RuntimeException("Error fetching slots by lecturer ID, week number, and day", e);
+        }
     }
 }
